@@ -1,9 +1,12 @@
 from tkinter import *
+import time
 import paho.mqtt.client as mqtt
 from random import randint
 from application.configs.broker_configs import mqtt_broker_configs
 
 sensor_count  = 0
+client_count  = 0
+
 thread_active = True
 
 class SensorCard:
@@ -39,6 +42,15 @@ class SensorCard:
     
     def get_value_choice(self):
         return self.value_choice.get()
+
+class ClientCard:
+
+    global client_count
+
+    def __init__(self):
+        self.name         = None
+        self.topics       = None
+        self.messages     = None
 
 def create_sensor():
 
@@ -118,22 +130,46 @@ def publish_sensor(sensor: SensorCard):
         else:
             sensor_read = sensor.get_static_value()
         
-        mqtt_client.publish(topic=f'{mqtt_broker_configs["TOPIC"]}',
-                            payload=f'Leitura do {sensor.get_name()}: {sensor_read}')
+        if sensor.get_value_choice() == 1 and sensor_read == sensor.get_max():
+            mqtt_client.publish(topic=f'{mqtt_broker_configs["TOPIC"]}/{sensor.get_topic()}',
+                            payload=f'Leitura do {sensor.get_name()}: {sensor_read} (MÁXIMO)')
+        else:
+            mqtt_client.publish(topic=f'{mqtt_broker_configs["TOPIC"]}/{sensor.get_topic()}',
+                                payload=f'Leitura do {sensor.get_name()}: {sensor_read}')
         
         GUI_Sensores.after(1000*sensor.get_period(), send_message)
     
     send_message()
 
-GUI_Sensores = Tk()
-GUI_Sensores.title("Projeto MOM - Sensores")
+def create_client():
 
-# LABEL TITULO DA JANELA
-title_label = Label(GUI_Sensores, text="Configuração dos Sensores")
-title_label.grid(column=1, row=0, columnspan=5)
+    global client_count
+
+    client_card = ClientCard()
+
+    # EM DESENVOLVIMENTO
+
+GUI_Sensores = Tk()
+GUI_Clientes = Tk()
+
+GUI_Sensores.title("Projeto MOM - Sensores")
+GUI_Clientes.title("Projeto MOM - Clientes")
+
+# LABEL TITULO DA JANELA DOS SENSORES
+sensor_title_label = Label(GUI_Sensores, text="Configuração dos Sensores")
+sensor_title_label.grid(column=1, row=0, columnspan=5)
+
+# LABEL TITULO DA JANELA DOS CLIENTES
+client_title_label = Label(GUI_Clientes, text="Configuração dos Clientes")
+client_title_label.grid(column=1, row=0, columnspan=5)
 
 # ADICIONA SENSOR
-button_add  = Button(GUI_Sensores, text="Criar Sensor", command=create_sensor)
-button_add.grid(column=0,row=1)
+button_add_sensor  = Button(GUI_Sensores, text="Criar Sensor", command=create_sensor)
+button_add_sensor.grid(column=0,row=1)
+
+# ADICIONA CLIENTE
+button_add_client  = Button(GUI_Clientes, text="Criar Cliente", command=create_client)
+button_add_client.grid(column=0,row=1)
 
 GUI_Sensores.mainloop()
+GUI_Clientes.mainloop()
