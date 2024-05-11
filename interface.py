@@ -1,4 +1,5 @@
 from tkinter import *
+from tkinter import scrolledtext
 import time
 import paho.mqtt.client as mqtt
 from random import randint
@@ -7,11 +8,14 @@ from application.configs.broker_configs import mqtt_broker_configs
 sensor_count  = 0
 client_count  = 0
 
+topics = []
+
 thread_active = True
 
 class SensorCard:
 
     global sensor_count
+    global topics
 
     def __init__(self):
         self.name          = None
@@ -29,6 +33,9 @@ class SensorCard:
         return int(self.period.get())
     
     def get_topic(self):
+        sensor_topic = self.topic.get()
+        if sensor_topic not in topics:
+            topics.append(sensor_topic)
         return self.topic.get()
     
     def get_min(self):
@@ -49,8 +56,8 @@ class ClientCard:
 
     def __init__(self):
         self.name         = None
-        self.topics       = None
-        self.messages     = None
+        self.topics       = []
+        self.messages     = []
 
 def create_sensor():
 
@@ -147,7 +154,24 @@ def create_client():
 
     client_card = ClientCard()
 
+    topic_title_label = Label(GUI_Clientes, text="Tópicos disponíveis:")
+    topic_title_label.grid(column=0)
+
+    count_rows = 0
+
     # EM DESENVOLVIMENTO
+    for topic in topics:
+        topic_selection = IntVar()
+        topic_check     = Checkbutton(GUI_Clientes, text=topic, variable=topic_selection)
+        topic_check.grid(column=0, sticky="w")
+        client_card.topics.append(topic_selection)
+        count_rows += 1
+    
+    message_text = scrolledtext.ScrolledText(GUI_Clientes, width=50, height=10)
+    message_text.grid(column=1, 
+                      row=topic_title_label.grid_info()['row']+1, 
+                      rowspan=count_rows)
+
 
 GUI_Sensores = Tk()
 GUI_Clientes = Tk()
