@@ -1,6 +1,5 @@
 from tkinter import *
 from tkinter import scrolledtext
-import time
 import paho.mqtt.client as mqtt
 from random import randint
 from application.configs.broker_configs import mqtt_broker_configs
@@ -55,9 +54,32 @@ class ClientCard:
     global client_count
 
     def __init__(self):
-        self.name         = None
-        self.topics       = []
-        self.messages     = []
+        self.selected_topics = []
+        self.text_box        = None
+        self.msg             = None
+
+    def lambda_show_message(self):
+        self.text_box.insert(END, self.msg+"\n")
+        
+    def show_message(self, client, userdata, message):
+        self.msg = message.payload.decode()
+        GUI_Sensores.after(10, self.lambda_show_message)
+    
+    def client_connected(self, client, userdata, flags, reason_code, properties):
+
+        chosen_topics = []
+        def get_selected_topics():
+            for i, var in enumerate(self.selected_topics):
+                if var == 1:
+                    chosen_topics.append(topics[i])
+        
+        if reason_code == 0:
+            get_selected_topics()
+            for topic in chosen_topics:
+                client.subscribe(f'{mqtt_broker_configs["TOPIC"]}/{topic}')
+        else:
+            print(f'ERRO: {reason_code}')
+        
 
 def create_sensor():
 
@@ -68,42 +90,42 @@ def create_sensor():
     # NOME DO SENSOR
     name_label  = Label(GUI_Sensores, text="NOME")
     name_label.grid(column=0)
-    name_string = StringVar()
+    name_string = StringVar(GUI_Sensores)
     name_string.set(f'Sensor {sensor_count}')
     Entry(GUI_Sensores, textvariable=name_string).grid(column=1, row=name_label.grid_info()['row'])
 
     # PERÍODO DE AMOSTRA DO SENSOR
     period_label  = Label(GUI_Sensores, text="PERÍODO")
     period_label.grid(column=0)
-    period_string = StringVar()
-    period_string.set('10')
+    period_string = StringVar(GUI_Sensores)
+    period_string.set('5')
     Entry(GUI_Sensores, textvariable=period_string).grid(column=1, row=period_label.grid_info()['row'])
     
     # TÓPICO DO SENSOR
     topic_label   = Label(GUI_Sensores, text="TÓPICO")
     topic_label.grid(column=0)
-    topic_string  = StringVar()
+    topic_string  = StringVar(GUI_Sensores)
     topic_string.set('exemplo')
     Entry(GUI_Sensores, textvariable=topic_string).grid(column=1, row=topic_label.grid_info()['row'])
 
     # VALOR MÍNIMO
     min_label     = Label(GUI_Sensores, text="MIN")
     min_label.grid(column=2, row=name_label.grid_info()['row'])
-    min_string    = StringVar()
+    min_string    = StringVar(GUI_Sensores)
     min_string.set('0')
     Entry(GUI_Sensores, textvariable=min_string).grid(column=3, row=min_label.grid_info()['row'])
 
     # VALOR MÁXIMO
     max_label     = Label(GUI_Sensores, text="MAX")
     max_label.grid(column=4, row=name_label.grid_info()['row'])
-    max_string    = StringVar()
+    max_string    = StringVar(GUI_Sensores)
     max_string.set('10')
     Entry(GUI_Sensores, textvariable=max_string).grid(column=5, row=max_label.grid_info()['row'])
    
     # VALOR ESTÁTICO
     static_label  = Label(GUI_Sensores, text="VALOR ESTÁTICO")
     static_label.grid(column=2, row=period_label.grid_info()['row'])
-    static_string = StringVar()
+    static_string = StringVar(GUI_Sensores)
     static_string.set('5')
     Entry(GUI_Sensores, textvariable=static_string).grid(column=3, row=static_label.grid_info()['row'], columnspan=3)
 
@@ -154,23 +176,49 @@ def create_client():
 
     client_card = ClientCard()
 
+    def connect_client_wrapper():
+        connect_client(client_card)
+
+    def update_client_topics():
+        for i in range(len(topic_selection)):
+            client_card.selected_topics[i] = topic_selection[i].get()
+
+
     topic_title_label = Label(GUI_Clientes, text="Tópicos disponíveis:")
     topic_title_label.grid(column=0)
 
     count_rows = 0
+    topic_selection = [IntVar() for _ in range(len(topics))]
 
-    # EM DESENVOLVIMENTO
-    for topic in topics:
-        topic_selection = IntVar()
-        topic_check     = Checkbutton(GUI_Clientes, text=topic, variable=topic_selection)
+    for i,topic in enumerate(topics):
+        topic_selection[i] = IntVar(GUI_Clientes)
+        topic_selection[i].set(0)
+        topic_check     = Checkbutton(GUI_Clientes, text=topic, variable=topic_selection[i], command=update_client_topics)
         topic_check.grid(column=0, sticky="w")
-        client_card.topics.append(topic_selection)
+        client_card.selected_topics.append(topic_selection[i].get())
         count_rows += 1
     
     message_text = scrolledtext.ScrolledText(GUI_Clientes, width=50, height=10)
     message_text.grid(column=1, 
                       row=topic_title_label.grid_info()['row']+1, 
                       rowspan=count_rows)
+    
+    client_card.text_box = message_text
+
+    button_connect_client = Button(GUI_Clientes, text="Conectar Cliente", command=connect_client_wrapper)
+    button_connect_client.grid(column=1)
+
+def connect_client(client_card: ClientCard):
+
+    mqtt_client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
+    mqtt_client.on_connect = client_card.client_connected
+    mqtt_client.on_message = client_card.show_message
+
+    mqtt_client.connect(host=mqtt_broker_configs["HOST"],
+                        port=mqtt_broker_configs["PORT"],
+                        keepalive=mqtt_broker_configs["KEEPALIVE"])
+
+    mqtt_client.loop_start()
 
 
 GUI_Sensores = Tk()

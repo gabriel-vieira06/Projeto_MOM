@@ -11,6 +11,6 @@ def on_subscribe(client, userdata, mid, reason_code_list, properties):
     print(f'CLIENTE INSCRITO EM {mqtt_broker_configs["TOPIC"]}')
 
 def on_message(client, userdata, message):
-    print(f'MESSAGEM RECEBIDA: {message.payload}')
+    print(f'MESSAGEM RECEBIDA: {message.payload.decode()}')
     print(f'TOPICO REMETENTE: {message.topic}')
 
